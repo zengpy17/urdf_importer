@@ -11,8 +11,8 @@ URDF Importer is an add-on for [Blender](https://www.blender.org/). It supports 
 
 ## Prerequisite
 
-- [Blender 3.1.x](https://www.blender.org/download/releases/3-1/)
-- [ROS or ROS2](https://www.ros.org/)
+- ~~[Blender 3.1.x](https://www.blender.org/download/releases/3-1/)~~
+- ~~[ROS or ROS2](https://www.ros.org/)~~
 
 ## Installation
 
