@@ -583,6 +583,7 @@ class RobotBuilder:
         tail.rotate(joint_rot)
 
         bone: Bone = self.root.data.edit_bones.new(bone_name)
+        bone.jointType = joint.type
         bone.head = head
         bone.tail = head + tail
 

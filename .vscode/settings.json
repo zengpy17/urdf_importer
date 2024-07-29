@@ -4,5 +4,8 @@
     ],
     "python.analysis.extraPaths": [
         "C:\\Users\\Billy\\Desktop\\作业\\研三上\\fake_bpy_modules_3.6"
-    ]
+    ],
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportInvalidTypeForm": "none"
+    }
 }
