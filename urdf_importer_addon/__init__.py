@@ -32,11 +32,6 @@ def register():
     bpy.types.TOPBAR_MT_file_import.append(import_menu_func)
     bpy.utils.register_class(FBXExporter)
     bpy.types.TOPBAR_MT_file_export.append(export_menu_func)
-    bpy.types.EditBone.jointType = bpy.props.EnumProperty(
-        name="Joint type",
-        description="The type of a joint",
-        items=[(i, i, "") for i in Joint.TYPES],
-    )
 
 
 def unregister():
