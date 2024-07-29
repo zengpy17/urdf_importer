@@ -11,8 +11,8 @@ URDF Importer is an add-on for [Blender](https://www.blender.org/). It supports 
 
 ## Prerequisite
 
-- [Blender 3.1.x](https://www.blender.org/download/releases/3-1/)
-- [ROS or ROS2](https://www.ros.org/)
+- ~~[Blender 3.1.x](https://www.blender.org/download/releases/3-1/)~~
+- ~~[ROS or ROS2](https://www.ros.org/)~~
 
 ## Installation
 
@@ -20,11 +20,7 @@ URDF Importer is an add-on for [Blender](https://www.blender.org/). It supports 
 
 ```console
 cd <blender_path>/<version>/python/bin/ # For example cd blender-3.1.2-linux-x64/3.1/python/bin/
-./python3.10 -m ensurepip
-./python3.10 -m pip install --upgrade pip
-./python3.10 -m pip install pyyaml
-./python3.10 -m pip install rospkg
-./python3.10 -m pip install urdf_parser_py
+./python.exe <path of install_requirements.py>
 ```
 
 Windows: If Blender is installed to i.e. `C:\Program Files\`, run `cmd.exe` as administrator! Define ROS_ROOT as system environment variable pointing to a folder containing your ROS packages.
