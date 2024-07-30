@@ -311,6 +311,7 @@ class RobotBuilder:
         should_apply_weld: bool,
         unique_name: bool,
         scale_unit: float,
+        robot_name: str,
     ):
         xml_string = urdf_cleanup(file_path)
         self.file_path = file_path
@@ -324,6 +325,9 @@ class RobotBuilder:
         self.apply_weld = should_apply_weld
         self.unique_name = unique_name
         self.scale_unit = scale_unit
+        self.robot_name = robot_name
+        if self.robot_name != "":
+            self.robot_name += "."
         self.build_robot()
         if should_merge_duplicate_materials:
             merge_materials(should_check_material_name)
@@ -332,7 +336,8 @@ class RobotBuilder:
         clean_up()
 
     def build_robot(self) -> None:
-        clear_data(bpy.data, self.scale_unit)
+        if self.robot_name == "":
+            clear_data(bpy.data, self.scale_unit)
         self.create_materials()
         self.configure_mesh_path()
         self.add_root_armature()
@@ -379,7 +384,7 @@ class RobotBuilder:
     def add_root_armature(self) -> None:
         arm: Armature = bpy.data.armatures.new("armatures")
         self.arm_bones = arm.bones
-        self.root = bpy.data.objects.new(self.root_name, arm)
+        self.root = bpy.data.objects.new(self.robot_name + self.root_name, arm)
         self.root.show_in_front = True
         bpy.context.scene.collection.objects.link(self.root)
         return None
@@ -559,9 +564,10 @@ class RobotBuilder:
         return (mesh_name, file_path, visual_pos, visual_rot, scale, material)
 
     def bind_mesh_to_bone(self, mesh_name: str, bone_name: str) -> None:
+        print(mesh_name + " " + bone_name)
         bpy.ops.object.mode_set(mode="POSE")
 
-        object = bpy.context.scene.objects.get(mesh_name)
+        object = bpy.context.scene.objects.get(self.robot_name + mesh_name)
         object.select_set(True)
         self.arm_bones.active = self.arm_bones[bone_name]
         self.arm_bones[bone_name].select = True
@@ -587,10 +593,10 @@ class RobotBuilder:
         bone.tail = head + tail
 
         if self.robot.parent_map[link.name][1] == self.robot.get_root():
-            bone.parent = self.root.data.edit_bones["root" + self.bone_tail]
+            bone.parent = self.root.data.edit_bones[self.robot_name + "root" + self.bone_tail]
         else:
             parent_joint = self.robot.parent_map[self.robot.parent_map[link.name][1]][0]
-            parent_joint_name = parent_joint + "." + str(self.robot.joint_map[parent_joint].type) + self.bone_tail
+            parent_joint_name = self.robot_name + parent_joint + "." + str(self.robot.joint_map[parent_joint].type) + self.bone_tail
             bone.parent = self.root.data.edit_bones[parent_joint_name]
 
         bpy.ops.object.mode_set(mode="OBJECT")
@@ -636,14 +642,14 @@ class RobotBuilder:
                 bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
                 bpy.ops.object.join()
 
-            bone_name = self.root_name + self.bone_tail
+            bone_name = self.robot_name + self.root_name + self.bone_tail
             self.add_root_bone(root_link.name, bone_name)
 
-            objects[0].name = root_link.name
+            objects[0].name = self.robot_name + root_link.name
             self.bind_mesh_to_bone(root_link.name, bone_name)
 
         else:
-            bone_name = self.root_name + self.bone_tail
+            bone_name = self.robot_name + self.root_name + self.bone_tail
             self.add_root_bone(root_link.name, bone_name)
 
         self.parent_links = [root_link]
@@ -700,13 +706,13 @@ class RobotBuilder:
                                 bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
                                 bpy.ops.object.join()
 
-                            bone_name = child_joint.name + "." + str(child_joint.type) + self.bone_tail
+                            bone_name = self.robot_name + child_joint.name + "." + str(child_joint.type) + self.bone_tail
                             self.add_bone(child_link, child_joint, joint_pos, joint_rot, bone_name)
 
-                            objects[0].name = child_link.name
+                            objects[0].name = self.robot_name + child_link.name
                             self.bind_mesh_to_bone(child_link.name, bone_name)
                         else:
-                            bone_name = child_joint.name + "." + str(child_joint.type) + self.bone_tail
+                            bone_name = self.robot_name + child_joint.name + "." + str(child_joint.type) + self.bone_tail
                             self.add_bone(child_link, child_joint, child_pos, child_rot, bone_name)
 
                         self.parent_links.append(child_link)

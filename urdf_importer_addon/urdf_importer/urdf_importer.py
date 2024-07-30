@@ -6,8 +6,8 @@ from bpy_extras.io_utils import ImportHelper
 from .robot_builder import RobotBuilder
 
 
-def read_data(filepath, merge_duplicate_materials, should_check_material_name, rename_materials, apply_weld, unique_name, scale_unit):
-    RobotBuilder(filepath, merge_duplicate_materials, should_check_material_name, rename_materials, apply_weld, unique_name, scale_unit)
+def read_data(filepath, merge_duplicate_materials, should_check_material_name, rename_materials, apply_weld, unique_name, scale_unit, robot_name):
+    RobotBuilder(filepath, merge_duplicate_materials, should_check_material_name, rename_materials, apply_weld, unique_name, scale_unit, robot_name)
 
     return {"FINISHED"}
 
@@ -30,6 +30,7 @@ class URDFImporter(bpy.types.Operator, ImportHelper):
     apply_weld: bpy.props.BoolProperty(name="Apply weld modifier", default=True)
     unique_name: bpy.props.BoolProperty(name="Each texture has an unique name", default=True)
     scale_unit: bpy.props.FloatProperty(name="Scale unit (for Unreal Engine is 0.01)", default=0.01)
+    robot_name: bpy.props.StringProperty(name="Robot name", default="")
 
     # ImportHelper mixin class uses this
     filename_ext = ".urdf"
@@ -37,11 +38,11 @@ class URDFImporter(bpy.types.Operator, ImportHelper):
     def execute(self, _):
         if self.merge_duplicate_materials == "OP1":
             return read_data(
-                self.filepath, self.merge_duplicate_materials, True, self.rename_materials, self.apply_weld, self.unique_name, self.scale_unit
+                self.filepath, self.merge_duplicate_materials, True, self.rename_materials, self.apply_weld, self.unique_name, self.scale_unit, self.robot_name
             )
         elif self.merge_duplicate_materials == "OP2":
             return read_data(
-                self.filepath, self.merge_duplicate_materials, False, self.rename_materials, self.apply_weld, self.unique_name, self.scale_unit
+                self.filepath, self.merge_duplicate_materials, False, self.rename_materials, self.apply_weld, self.unique_name, self.scale_unit, self.robot_name
             )
         else:
             return {"FINISHED"}
