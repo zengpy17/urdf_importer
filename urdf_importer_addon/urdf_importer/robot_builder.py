@@ -565,17 +565,16 @@ class RobotBuilder:
 
     def bind_mesh_to_bone(self, mesh_name: str, bone_name: str) -> None:
         print(mesh_name + " " + bone_name)
-        bpy.ops.object.mode_set(mode="POSE")
-
         object = bpy.context.scene.objects.get(self.robot_name + mesh_name)
-        object.select_set(True)
-        self.arm_bones.active = self.arm_bones[bone_name]
-        self.arm_bones[bone_name].select = True
-        bpy.ops.object.parent_set(type="BONE")
+        object.parent = self.root
+        object.parent_type = 'BONE'
+        object.parent_bone = bone_name
+        bone = self.arm_bones[bone_name]
+        m = object.matrix_world.copy()
+        object.matrix_local @= m
         object.select_set(False)
-        self.arm_bones[bone_name].select = False
-
-        bpy.ops.object.mode_set(mode="OBJECT")
+        bone.select = False
+        
         return None
 
     def add_bone(self, link: Link, joint: Joint, joint_pos: Vector, joint_rot: Euler, bone_name: str) -> None:
@@ -614,25 +613,38 @@ class RobotBuilder:
                 mesh_name, file_path, visual_pos, visual_rot, scale, material = self.get_link_data(
                     self.link_pose[root_link.name][0], self.link_pose[root_link.name][1], root_link, visual
                 )
+                # Check if the mesh is already loaded, if so, duplicate it to save memory
+                for loaded_object in bpy.data.objects[:]:
+                    if loaded_object.data.name == mesh_name.split('.')[-2]:
+                        object = loaded_object.copy()
+                        if loaded_object.users_collection:
+                            original_obj_collection = loaded_object.users_collection[0]
+                            original_obj_collection.objects.link(object)
+                        else:
+                            # If the original object is not linked to a collection, link the new object to the current collection
+                            bpy.context.collection.objects.link(object)
+                        object.name = mesh_name
+                        bpy.context.view_layer.objects.active = object
+                        break
+                else:
+                    pos_tmp = self.link_pose[root_link.name][0].copy()
+                    pos_tmp.rotate(self.link_pose[root_link.name][1])
+                    visual_pos += pos_tmp
 
-                pos_tmp = self.link_pose[root_link.name][0].copy()
-                pos_tmp.rotate(self.link_pose[root_link.name][1])
-                visual_pos += pos_tmp
+                    rot_tmp = self.link_pose[root_link.name][1].copy()
+                    rot_tmp.rotate(visual_rot)
+                    visual_rot = rot_tmp
 
-                rot_tmp = self.link_pose[root_link.name][1].copy()
-                rot_tmp.rotate(visual_rot)
-                visual_rot = rot_tmp
-
-                object = self.add_mesh(
-                    mesh_name,
-                    material,
-                    file_path,
-                    visual_pos,
-                    visual_rot,
-                    scale,
-                    self.link_pose[root_link.name][0],
-                    self.link_pose[root_link.name][1],
-                )
+                    object = self.add_mesh(
+                        mesh_name,
+                        material,
+                        file_path,
+                        visual_pos,
+                        visual_rot,
+                        scale,
+                        self.link_pose[root_link.name][0],
+                        self.link_pose[root_link.name][1],
+                    )
                 objects.append(object)
 
             for object in objects:
@@ -687,16 +699,30 @@ class RobotBuilder:
                                 mesh_name, file_path, visual_pos, visual_rot, scale, material = self.get_link_data(
                                     child_pos, child_rot, child_link, visual
                                 )
-                                object = self.add_mesh(
-                                    mesh_name,
-                                    material,
-                                    file_path,
-                                    visual_pos,
-                                    visual_rot,
-                                    scale,
-                                    self.link_pose[child_link.name][0],
-                                    self.link_pose[child_link.name][1],
-                                )
+                                # Check if the mesh is already loaded, if so, duplicate it to save memory
+                                for loaded_object in bpy.data.objects[:]:
+                                    if loaded_object.data.name == mesh_name.split('.')[-2]:
+                                        object = loaded_object.copy()
+                                        if loaded_object.users_collection:
+                                            original_obj_collection = loaded_object.users_collection[0]
+                                            original_obj_collection.objects.link(object)
+                                        else:
+                                            # If the original object is not linked to a collection, link the new object to the current collection
+                                            bpy.context.collection.objects.link(object)
+                                        object.name = mesh_name
+                                        bpy.context.view_layer.objects.active = object
+                                        break
+                                else:
+                                    object = self.add_mesh(
+                                        mesh_name,
+                                        material,
+                                        file_path,
+                                        visual_pos,
+                                        visual_rot,
+                                        scale,
+                                        self.link_pose[child_link.name][0],
+                                        self.link_pose[child_link.name][1],
+                                    )
                                 objects.append(object)
 
                             for object in objects:
