@@ -203,8 +203,8 @@ def get_from_ros_pkg(rel_path: str) -> str:
 def merge_materials(should_check_material_name: bool) -> None:
     mat_uniques: List[Material] = []
     object: Object
-    for object in bpy.data.objects:
-        for material_slot in object.material_slots:
+    for object in bpy.data.objects[:]:
+        for material_slot in object.material_slots[:]:
             mat = material_slot.material
             if mat is None or not mat.use_nodes:
                 continue
@@ -352,6 +352,7 @@ class RobotBuilder:
                 if bpy.data.materials.get(material.name):
                     print("Material", material.name, "already exists")
                 else:
+                    print("Creating material", material.name)
                     mat: Material = bpy.data.materials.new(name=material.name)
                     mat.diffuse_color = material.color.rgba
         return None
@@ -375,7 +376,7 @@ class RobotBuilder:
                             abs_path = os.path.join(os.path.dirname(self.file_path), visual.geometry.filename.replace("file://", ""))
                         else:
                             abs_path = os.path.join(os.path.dirname(self.file_path), visual.geometry.filename)
-                    print(abs_path)
+                    # print(abs_path)
                     if not os.path.exists(abs_path):
                         raise FileNotFoundError("File " + abs_path + " does not exist")
                     visual.geometry.filename = abs_path
@@ -392,7 +393,7 @@ class RobotBuilder:
     def add_mesh(
         self,
         mesh_name: str,
-        material: Material = None,
+        material_name: str = "",
         file_path: Union[str, List[str]] = "",
         location=Vector(),
         rotation=Euler(),
@@ -414,10 +415,13 @@ class RobotBuilder:
                 return None
             object = bpy.context.object
 
-            if material is None:
-                material = bpy.data.materials.get("Material")
+            if material_name == "":
+                print("Material name is not provided")
+                material = bpy.data.materials.get(mesh_name + ".Material")
                 if material is None:
-                    material = bpy.data.materials.new(name="Material")
+                    material = bpy.data.materials.new(name = mesh_name + ".Material")
+            else:
+                material = bpy.data.materials.get(material_name)
             object.data.materials.append(material)
 
         elif file_path:
@@ -454,7 +458,8 @@ class RobotBuilder:
                     object=True, obdata=True, material=False,
                     animation=False, obdata_animation=False)
                 bpy.ops.object.modifier_apply(modifier="Weld")
-            if material is not None:
+            if material_name != "":
+                material = bpy.data.materials.get(material_name)
                 object.data.materials.append(material)
 
         else:
@@ -551,20 +556,22 @@ class RobotBuilder:
             scale = Vector((1, 1, 1))
 
         if hasattr(visual, "material") and hasattr(visual.material, "name"):
+            material_name = visual.material.name
             material = bpy.data.materials.get(visual.material.name)
             if material is None:
+                print("Material", visual.material.name, "does not exist")
                 material = bpy.data.materials.new(visual.material.name)
                 if hasattr(visual.material, "color") and visual.material.color and visual.material.color.rgba:
                     material.use_nodes = True
                     principled_node = material.node_tree.nodes.get("Principled BSDF")
                     principled_node.inputs[0].default_value = visual.material.color.rgba
         else:
-            material = None
+            material_name = ""
 
-        return (mesh_name, file_path, visual_pos, visual_rot, scale, material)
+        return (mesh_name, file_path, visual_pos, visual_rot, scale, material_name)
 
     def bind_mesh_to_bone(self, mesh_name: str, bone_name: str) -> None:
-        print(mesh_name + " " + bone_name)
+        # print(mesh_name + " " + bone_name)
         object = bpy.context.scene.objects.get(self.robot_name + mesh_name)
         object.parent = self.root
         object.parent_type = 'BONE'
@@ -574,7 +581,17 @@ class RobotBuilder:
         object.matrix_local @= m
         object.select_set(False)
         bone.select = False
-        
+        # bpy.ops.object.mode_set(mode="POSE")
+
+        # object = bpy.context.scene.objects.get(self.robot_name + mesh_name)
+        # object.select_set(True)
+        # self.arm_bones.active = self.arm_bones[bone_name]
+        # self.arm_bones[bone_name].select = True
+        # bpy.ops.object.parent_set(type="BONE")
+        # object.select_set(False)
+        # self.arm_bones[bone_name].select = False
+
+        # bpy.ops.object.mode_set(mode="OBJECT")
         return None
 
     def add_bone(self, link: Link, joint: Joint, joint_pos: Vector, joint_rot: Euler, bone_name: str) -> None:
@@ -610,7 +627,7 @@ class RobotBuilder:
             objects = []
             visual: Visual
             for visual in root_link.visuals:
-                mesh_name, file_path, visual_pos, visual_rot, scale, material = self.get_link_data(
+                mesh_name, file_path, visual_pos, visual_rot, scale, material_name = self.get_link_data(
                     self.link_pose[root_link.name][0], self.link_pose[root_link.name][1], root_link, visual
                 )
                 # Check if the mesh is already loaded, if so, duplicate it to save memory
@@ -637,7 +654,7 @@ class RobotBuilder:
 
                     object = self.add_mesh(
                         mesh_name,
-                        material,
+                        material_name,
                         file_path,
                         visual_pos,
                         visual_rot,
@@ -696,7 +713,7 @@ class RobotBuilder:
                             visual: Visual
                             objects = []
                             for visual in child_link.visuals:
-                                mesh_name, file_path, visual_pos, visual_rot, scale, material = self.get_link_data(
+                                mesh_name, file_path, visual_pos, visual_rot, scale, material_name = self.get_link_data(
                                     child_pos, child_rot, child_link, visual
                                 )
                                 # Check if the mesh is already loaded, if so, duplicate it to save memory
@@ -715,7 +732,7 @@ class RobotBuilder:
                                 else:
                                     object = self.add_mesh(
                                         mesh_name,
-                                        material,
+                                        material_name,
                                         file_path,
                                         visual_pos,
                                         visual_rot,
