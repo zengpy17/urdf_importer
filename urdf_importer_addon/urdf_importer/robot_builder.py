@@ -227,6 +227,12 @@ def merge_materials(should_check_material_name: bool) -> None:
                     ):
                         mat_name_split.pop()
                         mat_unique_name_split.pop()
+                    elif (
+                        len(mat_name_split) == len(mat_unique_name_split) + 1
+                        and len(mat_name_split) > 1
+                        and mat_name_split[-1].isnumeric()
+                    ):
+                        mat_name_split.pop()
                     for mat_name, mat_unique_name in zip(mat_name_split, mat_unique_name_split):
                         if mat_name[:59] == mat_unique_name[:59]:
                             is_mat_unique = False
