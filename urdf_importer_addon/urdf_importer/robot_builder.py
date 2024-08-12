@@ -469,6 +469,7 @@ class RobotBuilder:
             bpy.context.scene.collection.objects.link(object)
 
         object.name = mesh_name
+        object.data.name = mesh_name.split('.')[-2]
         object.rotation_mode = "XYZ"
         object.rotation_euler.rotate(rotation)
         object.location.rotate(rotation)
