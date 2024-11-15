@@ -453,7 +453,7 @@ class RobotBuilder:
                     bpy.ops.wm.obj_import(filepath=file_path, forward_axis="Y", up_axis="Z")
                 elif file_ext == ".stl":
                     bpy.ops.wm.stl_import(filepath=file_path, global_scale=1 / self.scale_unit)
-
+                    bpy.ops.object.shade_flat()
                 else:
                     print("File extension", file_ext, "of", file_path, "is not supported")
                     return None
