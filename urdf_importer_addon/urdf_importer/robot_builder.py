@@ -308,6 +308,7 @@ def rename_materials(base_name: str) -> None:
 
 
 class RobotBuilder:
+    file_path_cache: Dict[str, str] = dict()
     def __init__(
         self,
         file_path: str,
@@ -407,6 +408,7 @@ class RobotBuilder:
         link_pos=Vector(),
         link_rot=Euler(),
     ) -> Object:
+        to_set_pose = True
         if isinstance(file_path, list):
             if file_path[0] == "cylinder":
                 bpy.ops.mesh.primitive_cylinder_add(
@@ -431,42 +433,54 @@ class RobotBuilder:
             object.data.materials.append(material)
 
         elif file_path:
-            file_ext = os.path.splitext(file_path)[1].lower()
-            if file_ext == ".dae":
-                (file_path, _) = fix_up_axis_and_get_materials(file_path, self.unique_name)
-                bpy.ops.wm.collada_import(filepath=file_path)
-            elif file_ext == ".obj":
-                scale *= 1 / self.scale_unit
-                bpy.ops.wm.obj_import(filepath=file_path, forward_axis="Y", up_axis="Z")
-            elif file_ext == ".stl":
-                bpy.ops.wm.stl_import(filepath=file_path, global_scale=1 / self.scale_unit)
-
+            if file_path in self.file_path_cache:
+                loaded_object = bpy.data.objects[self.file_path_cache[file_path]]
+                object = loaded_object.copy()
+                if loaded_object.users_collection:
+                    original_obj_collection = loaded_object.users_collection[0]
+                    original_obj_collection.objects.link(object)
+                else:
+                    # If the original object is not linked to a collection, link the new object to the current collection
+                    bpy.context.collection.objects.link(object)
+                to_set_pose = False
             else:
-                print("File extension", file_ext, "of", file_path, "is not supported")
-                return None
-            camera: Camera
-            for camera in bpy.data.cameras:
-                bpy.data.cameras.remove(camera)
-            light: Light
-            for light in bpy.data.lights:
-                bpy.data.lights.remove(light)
-            bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
-            if len(bpy.context.selected_objects) > 1:
-                bpy.ops.object.join()
-            if not bpy.context.object.data.uv_layers:
-                bpy.ops.mesh.uv_texture_add()
-            object = bpy.context.object
-            if self.apply_weld:
-                object.modifiers.new("Weld", "WELD")
-                # Modifiers cannot be applied to
-                # multi-user data, so we make it single.
-                bpy.ops.object.make_single_user(
-                    object=True, obdata=True, material=False,
-                    animation=False, obdata_animation=False)
-                bpy.ops.object.modifier_apply(modifier="Weld")
-            if material_name != "":
-                material = bpy.data.materials.get(material_name)
-                object.data.materials.append(material)
+                file_ext = os.path.splitext(file_path)[1].lower()
+                if file_ext == ".dae":
+                    (file_path, _) = fix_up_axis_and_get_materials(file_path, self.unique_name)
+                    bpy.ops.wm.collada_import(filepath=file_path)
+                elif file_ext == ".obj":
+                    scale *= 1 / self.scale_unit
+                    bpy.ops.wm.obj_import(filepath=file_path, forward_axis="Y", up_axis="Z")
+                elif file_ext == ".stl":
+                    bpy.ops.wm.stl_import(filepath=file_path, global_scale=1 / self.scale_unit)
+
+                else:
+                    print("File extension", file_ext, "of", file_path, "is not supported")
+                    return None
+                camera: Camera
+                for camera in bpy.data.cameras:
+                    bpy.data.cameras.remove(camera)
+                light: Light
+                for light in bpy.data.lights:
+                    bpy.data.lights.remove(light)
+                bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
+                if len(bpy.context.selected_objects) > 1:
+                    bpy.ops.object.join()
+                if not bpy.context.object.data.uv_layers:
+                    bpy.ops.mesh.uv_texture_add()
+                object = bpy.context.object
+                if self.apply_weld:
+                    object.modifiers.new("Weld", "WELD")
+                    # Modifiers cannot be applied to
+                    # multi-user data, so we make it single.
+                    bpy.ops.object.make_single_user(
+                        object=True, obdata=True, material=False,
+                        animation=False, obdata_animation=False)
+                    bpy.ops.object.modifier_apply(modifier="Weld")
+                if material_name != "":
+                    material = bpy.data.materials.get(material_name)
+                    object.data.materials.append(material)
+                self.file_path_cache[file_path] = self.robot_name + mesh_name.split('.')[0]
 
         else:
             mesh = bpy.data.meshes.new(mesh_name)
@@ -475,31 +489,31 @@ class RobotBuilder:
             bpy.context.scene.collection.objects.link(object)
 
         object.name = mesh_name
-        object.data.name = mesh_name.split('.')[-2]
-        object.rotation_mode = "XYZ"
-        object.rotation_euler.rotate(rotation)
-        object.location.rotate(rotation)
-        object.location += location
-        object.scale *= scale
+        if to_set_pose:
+            object.rotation_mode = "XYZ"
+            object.rotation_euler.rotate(rotation)
+            object.location.rotate(rotation)
+            object.location += location
+            object.scale *= scale
 
-        selected_object = bpy.context.object
-        if selected_object.scale[0] * selected_object.scale[1] * selected_object.scale[2] < 0:
-            bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.mesh.select_all(action="SELECT")
-            bpy.ops.mesh.flip_normals()
-            bpy.ops.object.mode_set(mode="OBJECT")
+            selected_object = bpy.context.object
+            if selected_object.scale[0] * selected_object.scale[1] * selected_object.scale[2] < 0:
+                bpy.ops.object.mode_set(mode="EDIT")
+                bpy.ops.mesh.select_all(action="SELECT")
+                bpy.ops.mesh.flip_normals()
+                bpy.ops.object.mode_set(mode="OBJECT")
 
-        # Change origin of mesh to link_pos and link_rot
-        bpy.context.scene.cursor.location = link_pos
-        bpy.context.scene.cursor.rotation_euler = link_rot
-        bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
-        bpy.context.scene.cursor.location = Vector()
-        bpy.context.scene.cursor.rotation_euler = Euler()
+            # Change origin of mesh to link_pos and link_rot (I don't know why this is needed, it has no effect)
+            # bpy.context.scene.cursor.location = link_pos
+            # bpy.context.scene.cursor.rotation_euler = link_rot
+            # bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
+            # bpy.context.scene.cursor.location = Vector()
+            # bpy.context.scene.cursor.rotation_euler = Euler()
 
-        # Apply 0.01 scale
-        # object.scale *= 100
-        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-        # object.scale /= 100
+            # Apply 0.01 scale
+            # object.scale *= 100
+            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+            # object.scale /= 100
 
         return object
 
@@ -637,38 +651,24 @@ class RobotBuilder:
                 mesh_name, file_path, visual_pos, visual_rot, scale, material_name = self.get_link_data(
                     self.link_pose[root_link.name][0], self.link_pose[root_link.name][1], root_link, visual
                 )
-                # Check if the mesh is already loaded, if so, duplicate it to save memory
-                for loaded_object in bpy.data.objects[:]:
-                    if loaded_object.data.name == mesh_name.split('.')[-2]:
-                        object = loaded_object.copy()
-                        if loaded_object.users_collection:
-                            original_obj_collection = loaded_object.users_collection[0]
-                            original_obj_collection.objects.link(object)
-                        else:
-                            # If the original object is not linked to a collection, link the new object to the current collection
-                            bpy.context.collection.objects.link(object)
-                        object.name = mesh_name
-                        bpy.context.view_layer.objects.active = object
-                        break
-                else:
-                    pos_tmp = self.link_pose[root_link.name][0].copy()
-                    pos_tmp.rotate(self.link_pose[root_link.name][1])
-                    visual_pos += pos_tmp
+                pos_tmp = self.link_pose[root_link.name][0].copy()
+                pos_tmp.rotate(self.link_pose[root_link.name][1])
+                visual_pos += pos_tmp
 
-                    rot_tmp = self.link_pose[root_link.name][1].copy()
-                    rot_tmp.rotate(visual_rot)
-                    visual_rot = rot_tmp
+                rot_tmp = self.link_pose[root_link.name][1].copy()
+                rot_tmp.rotate(visual_rot)
+                visual_rot = rot_tmp
 
-                    object = self.add_mesh(
-                        mesh_name,
-                        material_name,
-                        file_path,
-                        visual_pos,
-                        visual_rot,
-                        scale,
-                        self.link_pose[root_link.name][0],
-                        self.link_pose[root_link.name][1],
-                    )
+                object = self.add_mesh(
+                    mesh_name,
+                    material_name,
+                    file_path,
+                    visual_pos,
+                    visual_rot,
+                    scale,
+                    self.link_pose[root_link.name][0],
+                    self.link_pose[root_link.name][1],
+                )
                 objects.append(object)
 
             for object in objects:
@@ -723,30 +723,16 @@ class RobotBuilder:
                                 mesh_name, file_path, visual_pos, visual_rot, scale, material_name = self.get_link_data(
                                     child_pos, child_rot, child_link, visual
                                 )
-                                # Check if the mesh is already loaded, if so, duplicate it to save memory
-                                for loaded_object in bpy.data.objects[:]:
-                                    if loaded_object.data.name == mesh_name.split('.')[-2]:
-                                        object = loaded_object.copy()
-                                        if loaded_object.users_collection:
-                                            original_obj_collection = loaded_object.users_collection[0]
-                                            original_obj_collection.objects.link(object)
-                                        else:
-                                            # If the original object is not linked to a collection, link the new object to the current collection
-                                            bpy.context.collection.objects.link(object)
-                                        object.name = mesh_name
-                                        bpy.context.view_layer.objects.active = object
-                                        break
-                                else:
-                                    object = self.add_mesh(
-                                        mesh_name,
-                                        material_name,
-                                        file_path,
-                                        visual_pos,
-                                        visual_rot,
-                                        scale,
-                                        self.link_pose[child_link.name][0],
-                                        self.link_pose[child_link.name][1],
-                                    )
+                                object = self.add_mesh(
+                                    mesh_name,
+                                    material_name,
+                                    file_path,
+                                    visual_pos,
+                                    visual_rot,
+                                    scale,
+                                    self.link_pose[child_link.name][0],
+                                    self.link_pose[child_link.name][1],
+                                )
                                 objects.append(object)
 
                             for object in objects:
