@@ -383,7 +383,7 @@ class RobotBuilder:
                             abs_path = os.path.join(os.path.dirname(self.file_path), visual.geometry.filename.replace("file://", ""))
                         else:
                             abs_path = os.path.join(os.path.dirname(self.file_path), visual.geometry.filename)
-                    # print(abs_path)
+                    print(abs_path)
                     if not os.path.exists(abs_path):
                         raise FileNotFoundError("File " + abs_path + " does not exist")
                     visual.geometry.filename = abs_path
@@ -452,8 +452,13 @@ class RobotBuilder:
                     scale *= 1 / self.scale_unit
                     bpy.ops.wm.obj_import(filepath=file_path, forward_axis="Y", up_axis="Z")
                 elif file_ext == ".stl":
-                    bpy.ops.wm.stl_import(filepath=file_path, global_scale=1 / self.scale_unit)
-                    bpy.ops.object.shade_flat()
+                    if "stl_import" in dir(bpy.ops.wm):
+                        bpy.ops.wm.stl_import(filepath=file_path, up_axis='Z', forward_axis='Y', global_scale=1 / self.scale_unit)
+                    elif "stl" in dir(bpy.ops.import_mesh):
+                        bpy.ops.import_mesh.stl(filepath=file_path, global_scale=1 / self.scale_unit)
+                    else:
+                        print("STL import is not supported")
+                        return None
                 else:
                     print("File extension", file_ext, "of", file_path, "is not supported")
                     return None
